@@ -1,0 +1,246 @@
+{
+  "name": "portclash",
+  "displayName": "PortClash: Find Port Conflicts Across Compose, .env & Dev Servers",
+  "description": "Finds \"port already in use\" before you run anything: collects every declared port in docker compose, .env, package.json scripts, Vite/Next.js/Angular/Astro dev servers, devcontainer, launch.json and Kubernetes, and flags clashes, databases exposed on 0.0.0.0 and macOS AirPlay ports.",
+  "version": "0.1.0",
+  "publisher": "jaytankdev",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "port",
+    "ports",
+    "port in use",
+    "port conflict",
+    "EADDRINUSE",
+    "address already in use",
+    "docker compose",
+    "docker-compose",
+    "dev server",
+    "vite",
+    "next.js",
+    "localhost",
+    "devcontainer",
+    "kubernetes",
+    "dotenv"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/{docker-compose,compose}*.{yml,yaml}",
+    "workspaceContains:**/.env",
+    "workspaceContains:**/package.json",
+    "onStartupFinished",
+    "onView:portClash.ports"
+  ],
+  "main": "./extension.js",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#2B1B3D",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "PortClash only reads workspace files. The optional live port check (portClash.checkListening, off by default) can only be switched on from user settings while a workspace is untrusted."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "portClash.showPortMap",
+        "title": "Show Port Map",
+        "category": "PortClash",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "portClash.findFreePort",
+        "title": "Find Free Port Near...",
+        "category": "PortClash",
+        "icon": "$(search)"
+      },
+      {
+        "command": "portClash.refresh",
+        "title": "Refresh",
+        "category": "PortClash",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "portClash.openSource",
+        "title": "Open Port Source",
+        "category": "PortClash"
+      }
+    ],
+    "views": {
+      "portclash": [
+        {
+          "id": "portClash.ports",
+          "name": "Ports",
+          "icon": "media/activity.svg",
+          "contextualTitle": "PortClash"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "portClash.ports",
+        "contents": "PortClash is turned off.\n[Open PortClash Settings](command:workbench.action.openSettings?%5B%22portClash.%22%5D)",
+        "when": "!config.portClash.enabled"
+      },
+      {
+        "view": "portClash.ports",
+        "contents": "No declared ports found in this workspace.\nPortClash reads docker compose ports, .env files, package.json scripts and dev-server defaults (Next.js, Vite, Astro, Angular, Django, Flask, uvicorn), Vite/Astro/webpack configs, angular.json, Procfile, Makefile and shell scripts, devcontainer.json, launch.json and Kubernetes manifests, and lists every declared host port here with clashes first.\n[Refresh](command:portClash.refresh)\n[Find Free Port Near...](command:portClash.findFreePort)",
+        "when": "config.portClash.enabled && isWorkspaceTrusted"
+      },
+      {
+        "view": "portClash.ports",
+        "contents": "No declared ports found in this workspace.\nPortClash reads docker compose ports, .env files, package.json scripts and dev-server defaults (Next.js, Vite, Astro, Angular, Django, Flask, uvicorn), Vite/Astro/webpack configs, angular.json, Procfile, Makefile and shell scripts, devcontainer.json, launch.json and Kubernetes manifests, and lists every declared host port here with clashes first.\nThis workspace is untrusted: files are only read, and the live port check (portClash.checkListening) is only taken from your user settings.\n[Refresh](command:portClash.refresh)\n[Manage Workspace Trust](command:workbench.trust.manage)",
+        "when": "config.portClash.enabled && !isWorkspaceTrusted"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "portClash.openSource",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "portClash.findFreePort",
+          "when": "view == portClash.ports",
+          "group": "navigation@1"
+        },
+        {
+          "command": "portClash.showPortMap",
+          "when": "view == portClash.ports",
+          "group": "navigation@2"
+        },
+        {
+          "command": "portClash.refresh",
+          "when": "view == portClash.ports",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "portClash.findFreePort",
+          "when": "view == portClash.ports && viewItem =~ /^portClash(Clash|Port)$/",
+          "group": "inline"
+        },
+        {
+          "command": "portClash.findFreePort",
+          "when": "view == portClash.ports && viewItem =~ /^portClash(Clash|Port)$/",
+          "group": "1_actions@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PortClash",
+      "properties": {
+        "portClash.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan the workspace for declared ports and report conflicts."
+        },
+        "portClash.checkListening": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Also check whether declared ports are already in use on this machine (PC005). Linux: reads `/proc/net/tcp` and `/proc/net/tcp6` (no sockets). macOS/Windows (ports 1024 and above only): opens and immediately closes a local connection to `127.0.0.1:<port>` (no data is sent); if that is refused, briefly listens on `127.0.0.1:<port>` with Node's `net` module and closes it again. Never contacts any other host. Ignored from workspace settings while the workspace is untrusted."
+        },
+        "portClash.ignorePorts": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "default": [],
+          "description": "Ports to ignore entirely (not listed, never reported)."
+        },
+        "portClash.databasePorts": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "default": [
+            5432,
+            3306,
+            6379,
+            27017,
+            9200,
+            11211,
+            5984,
+            1433,
+            26257,
+            8086
+          ],
+          "description": "Container ports treated as databases/caches for PC003 (published on all interfaces)."
+        },
+        "portClash.airPlayNote": {
+          "type": "string",
+          "enum": [
+            "always",
+            "macOSOnly",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Always flag 5000/7000 (teammates on macOS hit it even if you do not).",
+            "Only when VS Code runs on macOS.",
+            "Never flag AirPlay ports."
+          ],
+          "default": "always",
+          "description": "When to report ports 5000 and 7000 (used by AirPlay on macOS) as PC002."
+        },
+        "portClash.privilegedPortNote": {
+          "type": "boolean",
+          "default": true,
+          "description": "Report non-Docker dev servers that bind a privileged port below 1024 (PC002)."
+        },
+        "portClash.codeFallbacks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check PORT env var fallbacks in JS/TS/Python code against .env and compose (PC004)."
+        },
+        "portClash.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/node_modules/**",
+            "**/.git/**",
+            "**/dist/**",
+            "**/build/**",
+            "**/.next/**",
+            "**/.nuxt/**",
+            "**/.svelte-kit/**",
+            "**/vendor/**",
+            "**/.venv/**",
+            "**/venv/**",
+            "**/__pycache__/**",
+            "**/target/**",
+            "**/coverage/**"
+          ],
+          "description": "Glob patterns (relative to the workspace folder) that are never scanned."
+        },
+        "portClash.maxFiles": {
+          "type": "number",
+          "default": 5000,
+          "description": "Maximum number of candidate files read per scan."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "portclash",
+          "title": "PortClash",
+          "icon": "media/activity.svg"
+        }
+      ]
+    }
+  }
+}
