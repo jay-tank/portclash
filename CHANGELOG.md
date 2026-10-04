@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.1.0 - Initial release
+
+- Collects declared ports from docker compose (short, range and long `ports:` syntax, `${VAR:-default}` resolved against the project `.env`), `.env*`, package.json scripts (Next.js, Nuxt, Vite, Astro, Angular, webpack, Django, Flask, uvicorn, `docker run -p`, `kubectl port-forward`, any `--port`), Vite/Astro `server.port`, webpack `devServer.port`, `angular.json`, Procfile, Makefile and shell scripts, `devcontainer.json`, `.vscode/launch.json` and Kubernetes `hostPort` / `nodePort`.
+- PC001: two different sources bind the same host port (Error, with related locations). Same-service references (for example a compose port and a script that both read the same `.env` entry, or `next dev` and `next start` in one package) are not reported.
+- PC002: ports 5000/7000 (AirPlay on macOS) and privileged ports below 1024 for non-Docker dev servers (Information).
+- PC003: compose publishes a database/cache port on all interfaces instead of 127.0.0.1 (Warning).
+- PC004: a `PORT` env var fallback in JS/TS/Python code disagrees with `.env` or compose `environment:` (Information).
+- PC005 (opt-in, `portClash.checkListening`): declared port already in use on this machine. Linux reads `/proc/net/tcp`/`tcp6`; macOS/Windows use a brief listen probe on 127.0.0.1.
+- Activity bar view "Ports" (PortClash container): one row per declared port labelled with the code and the exact port (`PC001  3000/tcp`), described with the rule and the owners, findings first; children are the exact lines that claim the port and open at that line (only live sources inside the workspace are opened). Badge = number of clashes. Title bar: Find Free Port Near..., Show Port Map, Refresh; inline Find Free Port Near... on host port rows; empty states for nothing found, turned off and untrusted.
+- Status bar summary (`Ports: 9 · 1 clash`), Show Port Map (Markdown) and Find Free Port Near... commands. Find Free Port only suggests ports 1024 and above.
+- Live check safety: ports below 1024 are never touched. On macOS and Windows a local connection to `127.0.0.1:<port>` is opened and immediately closed first (300 ms timeout, no data sent), so a server listening on all interfaces is detected and its port is never bound; only when that is refused does the loopback listen probe run. Every socket is closed on every path (including a late bind after a timeout), any incoming connection is dropped, and a live check stops after 5 seconds. On Linux, `/proc/net/tcp` is read and ports already listening are never bound.
+- Scans read files asynchronously with an mtime/size cache, never overlap, give declaration files priority over code files within `portClash.maxFiles`, skip symlinks that lead outside the workspace, and also run on save and every 30 seconds while the window is focused (file watchers are not available everywhere).
+- Zero telemetry, no child processes, no requests to any remote host (the opt-in live check on macOS/Windows only opens and closes local connections to 127.0.0.1).
